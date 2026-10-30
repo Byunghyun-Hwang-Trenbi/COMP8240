@@ -164,12 +164,14 @@ ev = EvalSurv(surv, t_test, e_test, censor_surv='km')
 c_index = ev.concordance_td()
 
 print("\n" + "="*50)
-print(f"[Replication Result] METABRIC Test C-index: {c_index:.4f}")
+print(f"[Replication Result] DeepSurv Test C-index: {c_index:.4f}")
 print("="*50)
 
-"""A-4. Model Development (CPH)"""
+"""A-4. Model Development (CPH and RSF)"""
 
-# Convert to pandas DataFrames (Train & Test)
+# =========================================================================
+# 1. Train and Evaluate Cox Proportional Hazards (CPH) Model
+# =========================================================================
 df_train = pd.DataFrame(x_train)
 df_train['t'] = t_train
 df_train['e'] = e_train
@@ -178,52 +180,39 @@ df_test = pd.DataFrame(x_test)
 df_test['t'] = t_test
 df_test['e'] = e_test
 
-# Fit and evaluate the Cox Proportional Hazards (CPH) model
 cph = CoxPHFitter()
 cph.fit(df_train, duration_col='t', event_col='e')
-
-# Measure the Test C-index
 cph_c_index = cph.score(df_test, scoring_method="concordance_index")
-print(f"CPH Test C-index: {cph_c_index:.4f}")
 
-"""A-5. Model Development (RSF)"""
 
-y_train_struct = np.array(
-    list(zip(e_train.astype(bool), t_train)),
-    dtype=[('Status', '?'), ('Survival_in_days', '<f8')]
-)
+# =========================================================================
+# 2. Train and Evaluate Random Survival Forest (RSF) Model
+# =========================================================================
+y_train_struct = np.array(list(zip(e_train.astype(bool), t_train)), dtype=[('Status', '?'), ('Survival_in_days', '<f8')])
+y_test_struct = np.array(list(zip(e_test.astype(bool), t_test)), dtype=[('Status', '?'), ('Survival_in_days', '<f8')])
 
-y_test_struct = np.array(
-    list(zip(e_test.astype(bool), t_test)),
-    dtype=[('Status', '?'), ('Survival_in_days', '<f8')]
-)
-
-print("Structured array conversion for RSF completed!")
-
-# -------------------------------------------------------------------------
-# Initialize and Train Random Survival Forest (RSF) Model
-# -------------------------------------------------------------------------
 rsf = RandomSurvivalForest(
     n_estimators=100,        # Number of trees (default: 100)
     min_samples_split=10,    # Minimum samples required to split a node
     min_samples_leaf=15,     # Minimum samples required at a leaf node
-    max_features="sqrt",     # Number of features to consider when looking for the best split
+    max_features="sqrt",     # Number of features to consider for the best split
     n_jobs=-1,               # Parallel processing (speed optimization)
     random_state=42
 )
 
 rsf.fit(x_train, y_train_struct)
-print("RSF model training completed")
+rsf_c_index = rsf.score(x_test, y_test_struct)
 
-# -------------------------------------------------------------------------
-# Model Evaluation (Compute Test C-index only)
-# -------------------------------------------------------------------------
-c_index_test = rsf.score(x_test, y_test_struct)
 
-print("\n" + "="*40)
-print(f"RSF Performance:")
-print(f"Test C-index : {c_index_test:.4f}")
-print("="*40)
+# =========================================================================
+# 3. Print Model Performance Comparison Results Simultaneously
+# =========================================================================
+print("=" * 45)
+print("Model Performance Comparison")
+print("=" * 45)
+print(f"1. CPH Test C-index : {cph_c_index:.4f}")
+print(f"2. RSF Test C-index : {rsf_c_index:.4f}")
+print("=" * 45)
 
 """--------------------------------------------------
 
