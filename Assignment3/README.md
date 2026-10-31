@@ -1,5 +1,6 @@
 **Notebook Structure & Outline**
-- The primary workflow is implemented in COMP8240_DeepSurv_Survival_Analysis.ipynb and follows this detailed outline:
+
+The primary workflow is implemented in COMP8240_DeepSurv_Survival_Analysis.ipynb and follows this detailed outline:
 
 A. Replication - Original Dataset
 A-1. Import Libraries
