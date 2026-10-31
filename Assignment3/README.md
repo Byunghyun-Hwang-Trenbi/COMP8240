@@ -1,3 +1,6 @@
+# **Notice**
+Please view and run `COMP8240_DeepSurv_Survival_Analysis.ipynb` directly in your Google Colab environment. GitHub sometimes encounters rendering issues with notebook code blocks and outputs; however, all code executes properly. You can also refer to the `COMP8240_DeepSurv_Survival_Analysis_Colab.pdf` file to review any code or outputs that may not display correctly on GitHub.
+
 # **Notebook Structure & Outline**
 
 The primary workflow is implemented in COMP8240_DeepSurv_Survival_Analysis.ipynb and follows this detailed outline:
