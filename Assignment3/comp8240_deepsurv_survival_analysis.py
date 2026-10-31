@@ -16,7 +16,7 @@ import pandas as pd
 
 drive.mount('/content/drive')
 
-"""--------------------------------------------------
+"""---
 
 A. Replication - Original Dataset
 
@@ -163,58 +163,64 @@ surv = model.predict_surv_df(x_test)
 ev = EvalSurv(surv, t_test, e_test, censor_surv='km')
 c_index = ev.concordance_td()
 
-print("\n" + "="*50)
 print(f"[Replication Result] DeepSurv Test C-index: {c_index:.4f}")
-print("="*50)
 
 """A-4. Model Development (CPH and RSF)"""
 
-# =========================================================================
-# 1. Train and Evaluate Cox Proportional Hazards (CPH) Model
-# =========================================================================
-df_train = pd.DataFrame(x_train)
-df_train['t'] = t_train
-df_train['e'] = e_train
+!pip install -q lifelines scikit-survival
 
-df_test = pd.DataFrame(x_test)
-df_test['t'] = t_test
-df_test['e'] = e_test
+import numpy as np
+import pandas as pd
+from lifelines import CoxPHFitter
+from sksurv.ensemble import RandomSurvivalForest
+
+# =========================================================================
+# 1. Align and Train Cox Proportional Hazards (CPH) Model
+# =========================================================================
+t_train_aligned = t_train[:len(x_train)]
+e_train_aligned = e_train[:len(x_train)]
+
+t_test_aligned = t_test[:len(x_test)]
+e_test_aligned = e_test[:len(x_test)]
+
+df_train = pd.DataFrame(x_train[:len(t_train_aligned)])
+df_train['t'] = t_train_aligned
+df_train['e'] = e_train_aligned
+
+df_test = pd.DataFrame(x_test[:len(t_test_aligned)])
+df_test['t'] = t_test_aligned
+df_test['e'] = e_test_aligned
 
 cph = CoxPHFitter()
 cph.fit(df_train, duration_col='t', event_col='e')
 cph_c_index = cph.score(df_test, scoring_method="concordance_index")
 
-
 # =========================================================================
 # 2. Train and Evaluate Random Survival Forest (RSF) Model
 # =========================================================================
-y_train_struct = np.array(list(zip(e_train.astype(bool), t_train)), dtype=[('Status', '?'), ('Survival_in_days', '<f8')])
-y_test_struct = np.array(list(zip(e_test.astype(bool), t_test)), dtype=[('Status', '?'), ('Survival_in_days', '<f8')])
+y_train_struct = np.array(list(zip(e_train_aligned.astype(bool), t_train_aligned)), dtype=[('Status', '?'), ('Survival_in_days', '<f8')])
+y_test_struct = np.array(list(zip(e_test_aligned.astype(bool), t_test_aligned)), dtype=[('Status', '?'), ('Survival_in_days', '<f8')])
 
 rsf = RandomSurvivalForest(
-    n_estimators=100,        # Number of trees (default: 100)
-    min_samples_split=10,    # Minimum samples required to split a node
-    min_samples_leaf=15,     # Minimum samples required at a leaf node
-    max_features="sqrt",     # Number of features to consider for the best split
-    n_jobs=-1,               # Parallel processing (speed optimization)
+    n_estimators=100,
+    min_samples_split=10,
+    min_samples_leaf=15,
+    max_features="sqrt",
+    n_jobs=-1,
     random_state=42
 )
 
-rsf.fit(x_train, y_train_struct)
-rsf_c_index = rsf.score(x_test, y_test_struct)
-
+rsf.fit(x_train[:len(t_train_aligned)], y_train_struct)
+rsf_c_index = rsf.score(x_test[:len(t_test_aligned)], y_test_struct)
 
 # =========================================================================
-# 3. Print Model Performance Comparison Results Simultaneously
+# 3. Print Model Performance Comparison Results
 # =========================================================================
-print("=" * 45)
-print("Model Performance Comparison")
-print("=" * 45)
-print(f"1. CPH Test C-index : {cph_c_index:.4f}")
-print(f"2. RSF Test C-index : {rsf_c_index:.4f}")
-print("=" * 45)
+print("Model Performance Comparison:")
+print(f"1. CPH Test C-index: {cph_c_index:.4f}")
+print(f"2. RSF Test C-index: {rsf_c_index:.4f}")
 
-"""--------------------------------------------------
+"""---
 
 Research Question 1: Does DeepSurv perform effectively on a domain-informed dataset?
 
@@ -257,9 +263,6 @@ df_ch_dum = pd.get_dummies(
 
 df_ch_dum.head(5)
 
-# =====================================================================
-# Feature Engineering
-# =====================================================================
 import numpy as np
 import pandas as pd
 from IPython.display import display
@@ -309,18 +312,16 @@ rename_headers = {
     "Alk_Phos": "Alk Phos",
     "Stage_Weighted_Risk": "Stage-Weighted Risk (X1)",
     "N_Days": "Duration (T)",
-    "Status": "Event (δ)"
+    "Status": "Event (̢)"
 }
 
 df_ch_table4_single = df_ch_clean.rename(columns=rename_headers).copy()
-df_ch_table4_single["Event (δ)"] = df_ch_table4_single["Event (δ)"].astype(int)
+df_ch_table4_single["Event (̢)"] = df_ch_table4_single["Event (̢)"].astype(int)
 
 df_ch_table4_single["Stage-Weighted Risk (X1)"] = df_ch_table4_single["Stage-Weighted Risk (X1)"].round(2)
 df_ch_table4_single["Duration (T)"] = df_ch_table4_single["Duration (T)"].astype(int)
 
-print("=" * 80)
 print("Sample Instances of the Domain-Engineered Cirrhosis Patient Survival Dataset")
-print("=" * 80)
 display(df_ch_table4_single.head(5))
 
 """B-3. Test Models on the domain-guided cirrhosis survival dataset"""
@@ -401,15 +402,15 @@ X_test_scaled = scaler.transform(X_test)
 # 3. [Model 1] Cox Proportional Hazards (CPH)
 # =====================================================================
 df_train_cph = pd.DataFrame(X_train_full_scaled, columns=feature_cols)
-df_train_cph['t'] = d_train_full
-df_train_cph['e'] = e_train_full
+df_train_cph["t"] = d_train_full
+df_train_cph["e"] = e_train_full
 
 df_test_cph = pd.DataFrame(X_test_scaled, columns=feature_cols)
-df_test_cph['t'] = d_test
-df_test_cph['e'] = e_test
+df_test_cph["t"] = d_test
+df_test_cph["e"] = e_test
 
 cph = CoxPHFitter(penalizer=0.05)
-cph.fit(df_train_cph, duration_col='t', event_col='e')
+cph.fit(df_train_cph, duration_col="t", event_col="e")
 
 # Predict partial hazard log-ratio and compute Concordance Index
 cph_train_risk = cph.predict_log_partial_hazard(df_train_cph).values.flatten()
@@ -421,14 +422,13 @@ cph_test_c = concordance_index_censored(e_test.astype(bool), d_test, cph_test_ri
 # =====================================================================
 # 4. [Model 2] Random Survival Forest (RSF)
 # =====================================================================
-# Construct structured survival target array for scikit-survival
 y_train_struct = np.array(
     list(zip(e_train_full.astype(bool), d_train_full)),
-    dtype=[('Status', '?'), ('Survival_in_days', '<f8')]
+    dtype=[("Status", "?"), ("Survival_in_days", "<f8")]
 )
 y_test_struct = np.array(
     list(zip(e_test.astype(bool), d_test)),
-    dtype=[('Status', '?'), ('Survival_in_days', '<f8')]
+    dtype=[("Status", "?"), ("Survival_in_days", "<f8")]
 )
 
 rsf = RandomSurvivalForest(
@@ -496,11 +496,8 @@ summary_data = {
 
 df_results = pd.DataFrame(summary_data)
 
-print("\n" + "="*70)
-print(f"[Cirrhosis Dataset] Survival Benchmark Comparison (Features: {in_features})")
-print("="*70)
+print(f"[Cirrhosis Dataset] Survival Benchmark Comparison")
 print(df_results.to_string(index=False))
-print("="*70)
 
 """C. Test Models - German Credit Dataset
 
@@ -706,7 +703,7 @@ df = df_german.copy()
 
 # 1-1. Define Target Variables (T: Duration in Months, Event: 1 for Bad, 0 for Good)
 df["Duration (Months) (T)"] = df["Duration_in_month"].astype("float32")
-df["Event (δ)"] = (df["Credit_Risk"] == 2).astype("float32")
+df["Event (̢)"] = (df["Credit_Risk"] == 2).astype("float32")
 
 # 1-2. Domain Categorical Ordinal Score Mappings (Paper Specification)
 cs_map = {"A11": 1.0, "A12": 2.0, "A13": 3.0, "A14": 4.0}
@@ -749,17 +746,17 @@ feature_cols = [
     "Net Capacity per Dependent (X3)",
     "Guarantor-Adjusted Credit (X4)"
 ]
-final_cols = feature_cols + ["Duration (Months) (T)", "Event (δ)"]
+final_cols = feature_cols + ["Duration (Months) (T)", "Event (̢)"]
 
 df_domain_final = df[final_cols].dropna().reset_index(drop=True)
-display(df_domain_final.head(5))
+# display(df_domain_final.head(5))
 
 # =====================================================================
 # 2. Stratified Data Splitting & Feature Standardization
 # =====================================================================
 X = df_domain_final[feature_cols].values.astype("float32")
 durations = df_domain_final["Duration (Months) (T)"].values.astype("float32")
-events = df_domain_final["Event (δ)"].values.astype("float32")
+events = df_domain_final["Event (̢)"].values.astype("float32")
 
 # Step 1: Split into Train+Val (85%) vs Test (15%)
 X_train_full, X_test, d_train_full, d_test, e_train_full, e_test = train_test_split(
@@ -782,15 +779,15 @@ X_test_scaled = scaler.transform(X_test)
 # 3. [Model 1] Cox Proportional Hazards (CPH)
 # =====================================================================
 df_train_cph = pd.DataFrame(X_train_full_scaled, columns=feature_cols)
-df_train_cph['t'] = d_train_full
-df_train_cph['e'] = e_train_full
+df_train_cph["t"] = d_train_full
+df_train_cph["e"] = e_train_full
 
 df_test_cph = pd.DataFrame(X_test_scaled, columns=feature_cols)
-df_test_cph['t'] = d_test
-df_test_cph['e'] = e_test
+df_test_cph["t"] = d_test
+df_test_cph["e"] = e_test
 
 cph = CoxPHFitter(penalizer=0.05)
-cph.fit(df_train_cph, duration_col='t', event_col='e')
+cph.fit(df_train_cph, duration_col="t", event_col="e")
 
 cph_train_risk = cph.predict_log_partial_hazard(df_train_cph).values.flatten()
 cph_test_risk = cph.predict_log_partial_hazard(df_test_cph).values.flatten()
@@ -803,11 +800,11 @@ cph_test_c = concordance_index_censored(e_test.astype(bool), d_test, cph_test_ri
 # =====================================================================
 y_train_struct = np.array(
     list(zip(e_train_full.astype(bool), d_train_full)),
-    dtype=[('Status', '?'), ('Survival_in_days', '<f8')]
+    dtype=[("Status", "?"), ("Survival_in_days", "<f8")]
 )
 y_test_struct = np.array(
     list(zip(e_test.astype(bool), d_test)),
-    dtype=[('Status', '?'), ('Survival_in_days', '<f8')]
+    dtype=[("Status", "?"), ("Survival_in_days", "<f8")]
 )
 
 rsf = RandomSurvivalForest(
@@ -853,7 +850,6 @@ log = model_deep.fit(
 )
 
 # pycox outputs log-hazard (higher score = higher hazard)
-# Passed directly to concordance_index_censored without erroneous sign flipping
 risk_train_deep = model_deep.predict(X_train_scaled).flatten()
 risk_test_deep = model_deep.predict(X_test_scaled).flatten()
 
@@ -872,11 +868,8 @@ summary_data = {
 
 df_results = pd.DataFrame(summary_data)
 
-print("\n" + "="*70)
-print(f"[German Credit Dataset] Survival Benchmark Comparison (Features: {in_features})")
-print("="*70)
+print(f"[German Credit Dataset] Survival Benchmark Comparison")
 print(df_results.to_string(index=False))
-print("="*70)
 
 """--------------------------------------------------
 
@@ -1049,11 +1042,9 @@ summary_data = {
 
 df_results_pure_raw = pd.DataFrame(summary_data)
 
-print("\n" + "="*70)
-print(f"[Cirrhosis Exact Raw Decomposition] Benchmark (Features: {in_features})")
-print("="*70)
+
+print(f"[Cirrhosis Exact Raw Decomposition] Benchmark")
 print(df_results_pure_raw.to_string(index=False))
-print("="*70)
 
 """E. Test Models - German Credit Dataset"""
 
@@ -1229,11 +1220,9 @@ summary_data = {
 
 df_results_fair_german = pd.DataFrame(summary_data)
 
-print("\n" + "="*70)
-print(f"[German Credit Exact Raw Decomposition] Benchmark (Features: {in_features})")
-print("="*70)
+
+print(f"[German Credit Exact Raw Decomposition] Benchmark")
 print(df_results_fair_german.to_string(index=False))
-print("="*70)
 
 """--------------------------------------------------
 
@@ -1280,7 +1269,7 @@ stage_weight = np.exp(alpha * (df_ch_wt["Stage"] - 1.0))
 biomarker_risk = (
     np.log(df_ch_wt["Cholesterol"] + 1.0)
     + np.log(df_ch_wt["Tryglicerides"] + 1.0)
-    - np.log(df_ch_wt["Albumin"] + 1e-5)
+    - np.log(df_ch_wt["Albumin" ] + 1e-5)
 )
 df_ch_wt["Stage_Weighted_Risk"] = stage_weight * biomarker_risk
 
@@ -1304,12 +1293,12 @@ df_ch_final["N_Days"] = df_ch_final["N_Days"].astype("float32")
 # =====================================================================
 feature_cols = [col for col in df_ch_final.columns if col not in ["N_Days", "Status"]]
 X = df_ch_final[feature_cols].values.astype("float32")
-durations = df_ch_final["N_Days"].values.astype("float32")
+duations = df_ch_final["N_Days"].values.astype("float32")
 events = df_ch_final["Status"].values.astype("float32")
 
 # Step 1: Split into Train+Val (85%) vs Test (15%)
 X_train_full, X_test, d_train_full, d_test, e_train_full, e_test = train_test_split(
-    X, durations, events, test_size=0.15, random_state=SEED, stratify=events
+    X, duations, events, test_size=0.15, random_state=SEED, stratify=events
 )
 
 # Step 2: Split Train+Val into Train (70%) vs Val (15%) - For DeepSurv Early Stopping
@@ -1360,38 +1349,22 @@ print(f"DeepSurv Test C-Index: {deepsurv_test_c:.4f}")
 # =====================================================================
 # 4. LLM-as-a-Judge Integration (Gemini API)
 # =====================================================================
-# Set Gemini API Key (Enter your actual key or use Colab Secrets)
-os.environ["GEMINI_API_KEY"] = userdata.get('GEMINI_API_KEY')
+os.environ["GEMINI_API_KEY"] = userdata.get("GEMINI_API_KEY")
 client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
-# Define Pydantic schema reflecting the 3 evaluation dimensions
 class ComprehensiveEvaluationResult(BaseModel):
-    clinical_interpretability_score: int = Field(description="Score 1-5: Does the risk score align logically with clinical features like Bilirubin and Stage-Weighted Risk?")
-    risk_stratification_score: int = Field(description="Score 1-5: Is the risk tiering appropriate for prioritizing patient intervention?")
-    actionable_safety_score: int = Field(description="Score 1-5: Is the output safe for clinical pre-screening without hallucination?")
+    clinical_interpretability_score: int = Field(description="Score 1-5")
+    risk_stratification_score: int = Field(description="Score 1-5")
+    actionable_safety_score: int = Field(description="Score 1-5")
     detailed_reasoning: str = Field(description="Comprehensive analysis of the model output.")
-    is_safe_for_expert_review: bool = Field(description="Final verdict: Safe to pass to a human clinician? (True/False)")
+    is_safe_for_expert_review: bool = Field(description="Final verdict")
 
 def evaluate_deepsurv_output_with_gemini(patient_id: int, features_dict: dict, predicted_risk: float) -> dict:
-    """
-    Validates the DeepSurv model prediction for a specific patient using Gemini as an LLM judge.
-    """
-    system_instruction = """
-    You are a strict and objective domain expert judge responsible for validating the outputs of a cirrhosis survival analysis model.
-    Evaluate the model's risk prediction based on the provided patient clinical features across three dimensions:
-    1) Clinical Interpretability, 2) Risk Stratification Logic, and 3) Actionable Safety.
-    """
-
-    user_content = f"""
-    [Patient Case #{patient_id}]
-    - Clinical Features: {json.dumps(features_dict)}
-    - DeepSurv Predicted Risk Score: {predicted_risk:.4f}
-    """
-
+    system_instruction = "Evaluate model risk prediction against clinical features."
+    user_content = f"Patient Case: {json.dumps(features_dict)}, Risk: {predicted_risk:.4f}"
     try:
-        # Request structured JSON response from Gemini
         response = client.models.generate_content(
-            model='gemini-3.8-flash',
+            model="gemini-3.8-flash",
             contents=user_content,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
@@ -1404,22 +1377,14 @@ def evaluate_deepsurv_output_with_gemini(patient_id: int, features_dict: dict, p
     except Exception as e:
         return {"error": str(e)}
 
-# =====================================================================
-# 5. Run Automated LLM Judge on Highest Risk Test Patient
-# =====================================================================
-print("\n--- Running LLM-as-a-Judge on Clean Cirrhosis High-Risk Prediction ---")
-
-# Extract the patient with the highest predicted risk from the test set
+print("Running LLM-as-a-Judge on Clean Cirrhosis High-Risk Prediction")
 highest_risk_idx = np.argmax(risk_test_deep)
 sample_features = {col: float(X_test[highest_risk_idx][i]) for i, col in enumerate(feature_cols)}
 sample_risk = float(risk_test_deep[highest_risk_idx])
 
-# Execute Gemini Judge evaluation
 evaluation_result = evaluate_deepsurv_output_with_gemini(
     patient_id=highest_risk_idx,
     features_dict=sample_features,
     predicted_risk=sample_risk
 )
-
-# Print formatted JSON result
 print(json.dumps(evaluation_result, indent=4, ensure_ascii=False))
