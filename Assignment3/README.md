@@ -27,13 +27,13 @@ F. LLM-as-a-Judge (Cirrhosis Dataset)
 
 **Getting Started in Google Colab**
 
-1. Mount Google Drive & Load Data
+1. Mount Google Drive & Load Data:
 Ensure your data files (cirrhosis.csv, german.data, metabric_IHC4_clinical_train_test.h5) are located in your Google Drive working directory, and run the mounting block
 
-2. Install Libraries 
+2. Install Libraries: 
 The required survival analysis and deep learning libraries are automatically installed via the notebook cells
 
-3. Configure Gemini API Key
+3. Configure Gemini API Key:
 Before executing Section F (LLM-as-a-Judge), ensure you generate and provide your Google Gemini API key within the notebook environment to authorize automated evaluation requests.
 
 **Author**
