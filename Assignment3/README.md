@@ -1,4 +1,4 @@
-**Notebook Structure & Outline**
+# **Notebook Structure & Outline**
 
 The primary workflow is implemented in COMP8240_DeepSurv_Survival_Analysis.ipynb and follows this detailed outline:
 
@@ -46,10 +46,7 @@ LLM-as-a-Judge
 
 F. LLM-as-a-Judge (Cirrhosis Dataset)
 
-===================================================================================
-===================================================================================
-
-**Getting Started in Google Colab**
+# **Getting Started in Google Colab**
 
 1. Mount Google Drive & Load Data:
    
@@ -66,6 +63,6 @@ Before executing Section F (LLM-as-a-Judge), ensure you generate and provide you
 ===================================================================================
 ===================================================================================
 
-**Author**
+# **Author**
 
 Byunghyun Hwang (Master of Data Science, Macquarie University)
